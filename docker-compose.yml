@@ -1,0 +1,93 @@
+# Docker Compose alternativo para desenvolvimento
+# Uso: docker-compose up -d
+# Nota: Use o Terraform para o ambiente de produção
+
+version: '3.8'
+
+services:
+  desafio-database:
+    build: ./database
+    container_name: desafio-database
+    environment:
+      - POSTGRES_DB=desafio
+      - POSTGRES_USER=postgres  
+      - POSTGRES_PASSWORD=secure_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/script.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d desafio"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  desafio-backend:
+    build: ./backend
+    container_name: desafio-backend
+    environment:
+      - PORT=3000
+      - DB_HOST=desafio-database
+      - DB_PORT=5432
+      - DB_NAME=desafio
+      - DB_USER=postgres
+      - DB_PASSWORD=secure_password
+    depends_on:
+      - desafio-database
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3000, path: '/api'}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  desafio-frontend:
+    build: ./frontend
+    container_name: desafio-frontend
+    networks:
+      - internal
+    restart: unless-stopped
+
+  desafio-proxy:
+    build: ./proxy
+    container_name: desafio-proxy
+    ports:
+      - "8080:80"
+    depends_on:
+      - desafio-frontend
+      - desafio-backend
+    networks:
+      - external
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  external:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.200.0.0/16
+          gateway: 172.200.0.1
+          
+  internal:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.201.0.0/16
+          gateway: 172.201.0.1
+
+volumes:
+  postgres_data:
