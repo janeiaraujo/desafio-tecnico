@@ -1,0 +1,15 @@
+# Exemplo de arquivo de configuração personalizada
+# Copie este arquivo para 'terraform.tfvars' para personalizar a instalação
+# cp terraform.tfvars.example terraform.tfvars
+
+# Porta externa para acesso à aplicação
+external_port = 8080
+
+# Configurações do banco de dados
+db_name = "desafio"
+db_user = "postgres"
+db_password = "secure_password"
+
+# Configurações de rede (avançado)
+# external_subnet = "172.20.0.0/16"
+# internal_subnet = "172.21.0.0/16"
